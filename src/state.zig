@@ -20,7 +20,10 @@ pub fn x(self: *Self) u4	{return @intCast((self.op >> 8) & 0xF);}
 pub fn y(self: *Self) u4	{return @intCast((self.op >> 4) & 0xF);}
 pub fn k(self: *Self) u8	{return @intCast(self.op & 0xFF);}
 
-pub fn c00E0(s: *Self) void	{@memset(&s.vram, ' ');}
+pub fn c00E0(s: *Self) void	{
+	@memset(&s.vram, ' ');
+	s.vmem = .{false} ** (64*32);
+}
 pub fn c00EE(s: *Self) void {s.sp -%= 1; s.pc = s.stk[s.sp];}
 pub fn c1NNN(s: *Self) void	{s.pc = s.n();}
 pub fn c2NNN(s: *Self) void	{s.stk[s.sp] = s.pc; s.pc = s.n(); s.sp +%= 1;}
@@ -57,17 +60,16 @@ pub fn c8XYE(s: *Self) void {
 pub fn c9XY0(s: *Self) void {if(s.v[s.x()] != s.v[s.y()]) s.pc += 2;}
 pub fn cANNN(s: *Self) void {s.i = s.n();}
 pub fn cBNNN(s: *Self) void {s.pc = s.n() +% s.v[0x0];}
-pub fn cCXKK(s: *Self) void {_ = s;} //TODO: s.v[s.x()] = rng % s.k();
+pub fn cCXKK(s: *Self, r: u8) void {s.v[s.x()] = r % s.k();} // PRNG value must be passed in by system
 
 pub fn cDXYN(s: *Self) void {
 	s.v[0xF] = 0;
 	for (0..(s.n()%0x10)) |r| {
 		const f: u8 = s.mem[s.i +% r];
-		for(0..7) |c| {
+		for(0..8) |c| {
 			const p: bool = (f & (@as(u8, 0x80) >> @as(u3, @intCast(c)))) != 0;
 			const loc = (((s.v[s.y()]+r)%32)*64) + ((s.v[s.x()]+c)%64);
 			if(p){
-				//if(s.vram[loc] == '#'){
 				if(s.vmem[loc]){
 					s.v[0xF] = 1;
 					s.vmem[loc] = false;
@@ -78,14 +80,10 @@ pub fn cDXYN(s: *Self) void {
 	}
 }
 
-pub fn cEX9E(s: *Self) void {if(s.key[s.x()] == true) s.pc += 2;}
-pub fn cEXA1(s: *Self) void {if(s.key[s.x()] != true) s.pc += 2;}
+pub fn cEX9E(s: *Self) void {if(s.key[s.v[s.x()]] == true) s.pc += 2;}
+pub fn cEXA1(s: *Self) void {if(s.key[s.v[s.x()]] != true) s.pc += 2;}
 pub fn cFX07(s: *Self) void {s.v[s.x()] = s.delay;}
 pub fn cFX0A(s: *Self, key_pressed: *bool, key_id: u4) void {
-	//TODO lmfao
-	// "Wait for a key press, store the value of the key in Vx.
-	// All execution stops until a key is pressed, then the value 
-	// of that key is stored in Vx."
 	if (!key_pressed.*) {s.pc -%= 2;} else {
 		s.v[s.x()] = key_id;
 		key_pressed.* = false;

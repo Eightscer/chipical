@@ -23,24 +23,37 @@ const font = [_]u8{
 };
 
 s: state = .{},
-//h: 32,
-//w: 64,
+prng: std.rand.DefaultPrng = undefined,
+
 last_key_pressed: u4 = undefined,
 key_pressed: bool = false,
 key_depressed: bool = false,
 screen_update: bool = false,
 
-// mapping: [16]C.SDL_Keycode = .{
-// 	C.SDLK_x, C.SDLK_1, C.SDLK_2, C.SDLK_3,
-// 	C.SDLK_q, C.SDLK_w, C.SDLK_e, C.SDLK_a,
-// 	C.SDLK_s, C.SDLK_d, C.SDLK_z, C.SDLK_c,
-// 	C.SDLK_4, C.SDLK_r, C.SDLK_f, C.SDLK_v
-// },
+pub fn init_prng (c8: *Self) !void {
+	c8.prng = std.rand.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        try std.os.getrandom(std.mem.asBytes(&seed));
+        break :blk seed;
+	});
+} 
 
 pub fn press_key (c8: *Self, key: u4) void {
+	if(!c8.s.key[key]){
+		c8.last_key_pressed = key;
+		c8.key_pressed = true;
+	}
 	c8.s.key[key] = true;
-	if(c8.last_key_pressed != key) c8.key_pressed = true;
-	c8.last_key_pressed = key;
+}
+
+pub fn release_key (c8: *Self, key: u4) void {
+	c8.s.key[key] = false;
+	//c8.last_key_pressed = undefined;
+}
+
+pub fn tick (c8: *Self) void {
+	if(c8.s.delay > 0) c8.s.delay -= 1;
+	if(c8.s.sound > 0) c8.s.sound -= 1;
 }
 
 pub fn exec(c8: *Self) void {
@@ -48,7 +61,7 @@ pub fn exec(c8: *Self) void {
 		0x0 => switch (c8.s.k()) {
 			0xE0 => {c8.s.c00E0(); c8.screen_update = true;},
 			0xEE => c8.s.c00EE(),
-			else => print("unknown opcode 0x{x:4}, skill issue\n", .{c8.s.op})
+			else => {}, //print("unknown opcode 0x{x:4}, skill issue\n", .{c8.s.op})
 		},
 		0x1 => c8.s.c1NNN(),
 		0x2 => c8.s.c2NNN(),
@@ -72,7 +85,7 @@ pub fn exec(c8: *Self) void {
 		0x9 => c8.s.c9XY0(),
 		0xA => c8.s.cANNN(),
 		0xB => c8.s.cBNNN(),
-		0xC => c8.s.cCXKK(),
+		0xC => c8.s.cCXKK(c8.prng.random().int(u8)),
 		0xD => {c8.s.cDXYN(); c8.screen_update = true;},
 		0xE => switch (c8.s.k()) {
 			0x9E => c8.s.cEX9E(),
@@ -113,7 +126,7 @@ pub fn load_rom_file(self: *Self, path: []const u8) !void {
 	const f = std.fs.cwd().openFile(path,
 	.{ .mode = .read_only }) catch {
 		print("File not found: {s}\n", .{path});
-		return;
+		return error.FileNotFound;
 	};
 	defer f.close();
 	var buf: [0xE00]u8 = undefined;
