@@ -1,16 +1,16 @@
 const Self = @This();
 
 v:		[16]u8 = .{0x00} ** 16,
-sp:		u8 = 0,
-pc:		u16 = 0x200,
-i:		u16 = 0x000,
+sp:		u4 = 0,
+pc:		u12 = 0x200,
+i:		u12 = 0x000,
 delay:	u8 = 0,
 sound:	u8 = 0,
 key:	[16]bool = .{false} ** 16,
 vram:	[64*32]u8 = .{' '} ** (64*32),
 vmem:	[64*32]bool = .{false} ** (64*32),
 mem:	[0x1000]u8 = undefined,
-stk:	[16]u16 = .{0x0000} ** 16,
+stk:	[16]u12 = .{0x000} ** 16,
 
 op:		u16 = 0x0000,
 
@@ -27,9 +27,9 @@ pub fn c00E0(s: *Self) void	{
 pub fn c00EE(s: *Self) void {s.sp -%= 1; s.pc = s.stk[s.sp];}
 pub fn c1NNN(s: *Self) void	{s.pc = s.n();}
 pub fn c2NNN(s: *Self) void	{s.stk[s.sp] = s.pc; s.pc = s.n(); s.sp +%= 1;}
-pub fn c3XKK(s: *Self) void {if(s.v[s.x()] == s.k()) s.pc += 2;}
-pub fn c4XKK(s: *Self) void {if(s.v[s.x()] != s.k()) s.pc += 2;}
-pub fn c5XY0(s: *Self) void {if(s.v[s.x()] == s.v[s.y()]) s.pc += 2;}
+pub fn c3XKK(s: *Self) void {if(s.v[s.x()] == s.k()) s.pc +%= 2;}
+pub fn c4XKK(s: *Self) void {if(s.v[s.x()] != s.k()) s.pc +%= 2;}
+pub fn c5XY0(s: *Self) void {if(s.v[s.x()] == s.v[s.y()]) s.pc +%= 2;}
 pub fn c6XKK(s: *Self) void {s.v[s.x()] = s.k();}
 pub fn c7XKK(s: *Self) void {s.v[s.x()] +%= s.k();}
 pub fn c8XY0(s: *Self) void {s.v[s.x()] = s.v[s.y()];}
@@ -57,7 +57,7 @@ pub fn c8XYE(s: *Self) void {
 	const ov = @shlWithOverflow(s.v[s.x()], 1);
 	s.v[s.x()] = ov[0]; s.v[0xF] = ov[1];
 }
-pub fn c9XY0(s: *Self) void {if(s.v[s.x()] != s.v[s.y()]) s.pc += 2;}
+pub fn c9XY0(s: *Self) void {if(s.v[s.x()] != s.v[s.y()]) s.pc +%= 2;}
 pub fn cANNN(s: *Self) void {s.i = s.n();}
 pub fn cBNNN(s: *Self) void {s.pc = s.n() +% s.v[0x0];}
 pub fn cCXKK(s: *Self, r: u8) void {s.v[s.x()] = r % s.k();} // PRNG value must be passed in by system
@@ -80,8 +80,8 @@ pub fn cDXYN(s: *Self) void {
 	}
 }
 
-pub fn cEX9E(s: *Self) void {if(s.key[s.v[s.x()]] == true) s.pc += 2;}
-pub fn cEXA1(s: *Self) void {if(s.key[s.v[s.x()]] != true) s.pc += 2;}
+pub fn cEX9E(s: *Self) void {if(s.key[s.v[s.x()]] == true) s.pc +%= 2;}
+pub fn cEXA1(s: *Self) void {if(s.key[s.v[s.x()]] != true) s.pc +%= 2;}
 pub fn cFX07(s: *Self) void {s.v[s.x()] = s.delay;}
 pub fn cFX0A(s: *Self, key_pressed: *bool, key_id: u4) void {
 	if (!key_pressed.*) {s.pc -%= 2;} else {

@@ -69,7 +69,7 @@ pub fn exec(c8: *Self) void {
 			0x6 => c8.s.c8XY6(),
 			0x7 => c8.s.c8XY7(),
 			0xE => c8.s.c8XYE(),
-			else => print("unknown opcode 0x{x:0>4}, skill issue\n", .{c8.s.op})
+			else => {}, //print("unknown opcode 0x{x:0>4}, skill issue\n", .{c8.s.op})
 		},
 		0x9 => c8.s.c9XY0(),
 		0xA => c8.s.cANNN(),
@@ -79,7 +79,7 @@ pub fn exec(c8: *Self) void {
 		0xE => switch (c8.s.k()) {
 			0x9E => c8.s.cEX9E(),
 			0xA1 => c8.s.cEXA1(),
-			else => print("unknown opcode 0x{x:0>4}, skill issue\n", .{c8.s.op})
+			else => {}, //print("unknown opcode 0x{x:0>4}, skill issue\n", .{c8.s.op})
 		},
 		0xF => switch (c8.s.k()) {
 			0x07 => c8.s.cFX07(),
@@ -91,7 +91,7 @@ pub fn exec(c8: *Self) void {
 			0x33 => c8.s.cFX33(),
 			0x55 => c8.s.cFX55(),
 			0x65 => c8.s.cFX65(),
-			else => print("unknown opcode 0x{x:0>4}, skill issue\n", .{c8.s.op})
+			else => {}, //print("unknown opcode 0x{x:0>4}, skill issue\n", .{c8.s.op})
 		},
 	}
 }
@@ -107,8 +107,8 @@ pub fn draw_screen(c: *Self) void {
 }
 
 pub fn fetch_instr(self: *Self) void {
-	self.s.op = (@as(u16, self.s.mem[self.s.pc]) << 8) | (self.s.mem[self.s.pc + 1]);
-	self.s.pc += 2;
+	self.s.op = (@as(u16, self.s.mem[self.s.pc]) << 8) | (self.s.mem[self.s.pc +% 1]);
+	self.s.pc +%= 2;
 }
 
 pub fn load_rom_file(self: *Self, path: []const u8) !void {

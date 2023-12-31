@@ -1,6 +1,7 @@
 const std = @import("std");
 const sys = @import("./system.zig");
 const clap = @import("./zig-clap/clap.zig");
+const bios = @import("./bios.zig");
 const print = std.debug.print;
 
 const C = @cImport({
@@ -37,7 +38,7 @@ render: ?*C.SDL_Renderer = undefined,
 texture: ?*C.SDL_Texture = undefined,
 
 pub fn init_sdl (emu: *Self) void {
-	emu.window = C.SDL_CreateWindow("corax89.ch8", C.SDL_WINDOWPOS_CENTERED, 
+	emu.window = C.SDL_CreateWindow("chipical", C.SDL_WINDOWPOS_CENTERED, 
 		C.SDL_WINDOWPOS_CENTERED, 64*emu.scale, 32*emu.scale, C.SDL_WINDOW_SHOWN);
 	emu.render = C.SDL_CreateRenderer(emu.window, 0, C.SDL_RENDERER_PRESENTVSYNC);
 	emu.texture = C.SDL_CreateTexture(emu.render, C.SDL_PIXELFORMAT_RGBA8888,
@@ -144,9 +145,15 @@ pub fn main() !void {
 	if (res.args.paused != 0) {emu.pause = true;}
 	if (res.args.instant != 0) {emu.instant_render = true;}
 	if (res.args.bios != 0) {emu.system.s.pc = 0;}
-	for (res.positionals) |pos| {_ = emu.system.load_rom_file(pos) catch {
-		
-	};}
+	//for (res.positionals) |pos| {_ = emu.system.load_rom_file(pos) catch {};}
+	if (res.positionals.len > 0) {
+		_ = emu.system.load_rom_file(res.positionals[0]) catch {};
+	} else {
+		print("No file specified. Booting to BIOS...\n", .{});
+		@memset(&emu.system.s.mem, 0);
+		@memcpy(emu.system.s.mem[0..0x200], &bios.BIOS);
+		emu.system.s.pc = 0x000;
+	}
 
 	_ = try emu.system.init_prng();
 
