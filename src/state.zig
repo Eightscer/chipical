@@ -92,7 +92,8 @@ pub fn cFX0A(s: *Self, key_pressed: *bool, key_id: u4) void {
 pub fn cFX15(s: *Self) void {s.delay = s.v[s.x()];}
 pub fn cFX18(s: *Self) void {s.sound = s.v[s.x()];}
 pub fn cFX1E(s: *Self) void {s.i +%= s.v[s.x()];}
-pub fn cFX29(s: *Self) void {s.i = (s.v[s.x()] * 5) + 0;}
+//pub fn cFX29(s: *Self) void {s.i = (s.v[s.x()] * 5) + 0;}
+pub fn cFX29(s: *Self, loc: [16]u12) void {s.i = loc[s.v[s.x()] & 0xF];}
 pub fn cFX33(s: *Self) void {
 	s.mem[s.i]		= s.v[s.x()] / 100;
 	s.mem[s.i +% 1]	= (s.v[s.x()] % 100) / 10;

@@ -1,25 +1,14 @@
 const Self = @This();
 const std = @import("std");
 const state = @import("./state.zig");
+const bios = @import("./bios.zig");
 const print = std.debug.print;
 
-const font = [_]u8{
-	0xF0, 0x90, 0x90, 0x90, 0xF0,
-	0x20, 0x60, 0x20, 0x20, 0x70,
-	0xF0, 0x10, 0xF0, 0x80, 0xF0,
-	0xF0, 0x10, 0xF0, 0x10, 0xF0,
-	0x90, 0x90, 0xF0, 0x10, 0x10,
-	0xF0, 0x80, 0xF0, 0x10, 0xF0,
-	0xF0, 0x80, 0xF0, 0x90, 0xF0,
-	0xF0, 0x10, 0x20, 0x40, 0x40,
-	0xF0, 0x90, 0xF0, 0x90, 0xF0,
-	0xF0, 0x90, 0xF0, 0x10, 0xF0,
-	0xF0, 0x90, 0xF0, 0x90, 0x90,
-	0xE0, 0x90, 0xE0, 0x90, 0xE0,
-	0xF0, 0x80, 0x80, 0x80, 0xF0,
-	0xE0, 0x90, 0x90, 0x90, 0xE0,
-	0xF0, 0x80, 0xF0, 0x80, 0xF0,
-	0xF0, 0x80, 0xF0, 0x80, 0x80
+const font_loc = [16]u12{
+	0x1DC, 0x1B7, 0x1C7, 0x1CB,
+	0x1C2, 0x1CF, 0x1D3, 0x1D7,
+	0x1E0, 0x1E2, 0x1E6, 0x1EB,
+	0x1F4, 0x1EF, 0x1F9, 0x1FB
 };
 
 s: state = .{},
@@ -61,7 +50,7 @@ pub fn exec(c8: *Self) void {
 		0x0 => switch (c8.s.k()) {
 			0xE0 => {c8.s.c00E0(); c8.screen_update = true;},
 			0xEE => c8.s.c00EE(),
-			else => {}, //print("unknown opcode 0x{x:4}, skill issue\n", .{c8.s.op})
+			else => {}, //print("unknown opcode 0x{x:0>4}, skill issue\n", .{c8.s.op})
 		},
 		0x1 => c8.s.c1NNN(),
 		0x2 => c8.s.c2NNN(),
@@ -80,7 +69,7 @@ pub fn exec(c8: *Self) void {
 			0x6 => c8.s.c8XY6(),
 			0x7 => c8.s.c8XY7(),
 			0xE => c8.s.c8XYE(),
-			else => print("unknown opcode 0x{x:4}, skill issue\n", .{c8.s.op})
+			else => print("unknown opcode 0x{x:0>4}, skill issue\n", .{c8.s.op})
 		},
 		0x9 => c8.s.c9XY0(),
 		0xA => c8.s.cANNN(),
@@ -90,7 +79,7 @@ pub fn exec(c8: *Self) void {
 		0xE => switch (c8.s.k()) {
 			0x9E => c8.s.cEX9E(),
 			0xA1 => c8.s.cEXA1(),
-			else => print("unknown opcode 0x{x:4}, skill issue\n", .{c8.s.op})
+			else => print("unknown opcode 0x{x:0>4}, skill issue\n", .{c8.s.op})
 		},
 		0xF => switch (c8.s.k()) {
 			0x07 => c8.s.cFX07(),
@@ -98,11 +87,11 @@ pub fn exec(c8: *Self) void {
 			0x15 => c8.s.cFX15(),
 			0x18 => c8.s.cFX18(),
 			0x1E => c8.s.cFX1E(),
-			0x29 => c8.s.cFX29(),
+			0x29 => c8.s.cFX29(font_loc),
 			0x33 => c8.s.cFX33(),
 			0x55 => c8.s.cFX55(),
 			0x65 => c8.s.cFX65(),
-			else => print("unknown opcode 0x{x:4}, skill issue\n", .{c8.s.op})
+			else => print("unknown opcode 0x{x:0>4}, skill issue\n", .{c8.s.op})
 		},
 	}
 }
@@ -123,26 +112,28 @@ pub fn fetch_instr(self: *Self) void {
 }
 
 pub fn load_rom_file(self: *Self, path: []const u8) !void {
+	@memset(&self.s.mem, 0);
+	@memcpy(self.s.mem[0..0x200], &bios.BIOS);
 	const f = std.fs.cwd().openFile(path,
 	.{ .mode = .read_only }) catch {
 		print("File not found: {s}\n", .{path});
+		print("Falling back to BIOS...\n", .{});
+		self.s.pc = 0x000;
 		return error.FileNotFound;
 	};
 	defer f.close();
 	var buf: [0xE00]u8 = undefined;
 	const bytes_read = f.readAll(&buf) catch unreachable;
-	@memset(&self.s.mem, 0);
-	@memcpy(self.s.mem[0..80], &font);
 	@memcpy(self.s.mem[0x200..], &buf);
 	print("{} bytes read\n", .{bytes_read});
 	//for (&self.mem) |b| {print("{x:4}", .{b});}
 }
 
 pub fn print_state(c8: *Self) void {
-	print("[PC: {x:4}] [SP: {x:4}] [I:  {x:4}] [OP: {x:4}]\n",
+	print("[PC: {x:0>4}] [SP: {x:0>4}] [I:  {x:0>4}] [OP: {x:0>4}]\n",
 		.{c8.s.pc, c8.s.sp, c8.s.i, c8.s.op});
 	print("V: ", .{});
-	for (c8.s.v) |v| print("{x:2} ", .{v});
+	for (c8.s.v) |v| print("{x:0>2} ", .{v});
 	print("\n\n", .{});
 }
 

@@ -23,9 +23,13 @@ mapping: [16]C.SDL_Keycode = .{
 
 system: sys = .{},
 
+freq_cap: u64 = 100000,
+
+
 quit: bool = false,
 pause: bool = false,
 held: bool = false,
+instant_render: bool = false,
 video: [64*32]u32 = .{0x000000FF} ** (64*32),
 
 window: ?*C.SDL_Window = undefined,
@@ -95,12 +99,18 @@ pub fn main() !void {
 
 	const params = comptime clap.parseParamsComptime(
 		\\-h, --help				Displays this help menu and exits.
-		\\-f, --file <FILE>...		Specifies ROM file to be run
+		\\-p, --paused				Start the interpreter in a paused state
+		\\-i, --instant				Instantly renders screen on every DRAW instruction
+		\\-b, --bios				Starts at PC = 0x000, containing a builtin-ROM
+		\\-f, --freq <FREQ>			Specifies max frequency for interpreter (default 100000)
+		\\-s, --scale <SCALE>		Scaling factor of application window (default 10)
 		\\<FILE>...
 		\\
 	);
 
 	const parsers = comptime .{
+		.FREQ = clap.parsers.int(u64, 10),
+		.SCALE = clap.parsers.int(c_int, 10),
 		.FILE = clap.parsers.string,
 	};
 
@@ -119,13 +129,24 @@ pub fn main() !void {
 
 	var emu: Self = .{};
 	
-	for (res.args.file) |f| {
-		_ = try emu.system.load_rom_file(f);
+	if (res.args.freq) |f| { 
+		if(f > 1000000000 / 60){
+			print("Frequency cap too high, defaulting to {}\n", .{emu.freq_cap});
+		} else if(f == 0) {
+			print("Very funny.\n", .{});
+		} else {emu.freq_cap = f;}
 	}
-
-	for (res.positionals) |pos| {
-		_ = try emu.system.load_rom_file(pos);
+	if (res.args.scale) |s| {
+		if(s < 1 or s > 120) {
+			print("Invalid scaling factor, defaulting to {} ({}x{})\n", .{emu.scale, emu.scale*64, emu.scale*32});
+		} else {emu.scale = s;}
 	}
+	if (res.args.paused != 0) {emu.pause = true;}
+	if (res.args.instant != 0) {emu.instant_render = true;}
+	if (res.args.bios != 0) {emu.system.s.pc = 0;}
+	for (res.positionals) |pos| {_ = emu.system.load_rom_file(pos) catch {
+		
+	};}
 
 	_ = try emu.system.init_prng();
 
@@ -139,10 +160,9 @@ pub fn main() !void {
 
 	var t: u32 = 0;
 	var currt: u32 = C.SDL_GetTicks();
-	const delay_dt: u32 = 16;
+	const delay_dt: u32 = 16; // 1000 / 60 = ~16ms
 	var acc: u32 = 0;
-	//const nsleep: u32 = 1000000; // 1khz
-	const nsleep: u32 = 10000; // 100khz
+	const nsleep: u64 = 1000000000 / emu.freq_cap;
 
 	while (!emu.quit) {
 
@@ -156,6 +176,10 @@ pub fn main() !void {
 
 			acc += difft;
 			while (acc >= delay_dt) : (acc -= delay_dt) {
+				if(emu.system.screen_update and !emu.instant_render){
+					emu.system.screen_update = false;
+					emu.update_gfx();
+				}
 				emu.system.tick();
 				t += delay_dt;
 			}
@@ -163,7 +187,7 @@ pub fn main() !void {
 			emu.system.fetch_instr();
 			emu.system.exec();
 
-			if(emu.system.screen_update) {
+			if(emu.system.screen_update and emu.instant_render) {
 				emu.system.screen_update = false;
 				emu.update_gfx();
 			}
