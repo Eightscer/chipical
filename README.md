@@ -30,6 +30,21 @@ The keypad is mapped `{0, 1, ..., E, F} -> {X, 1, 2, 3, Q, W, E, A, S, D, Z, C, 
 
 `P` will pause emulation, and `ESC` will quit the program.
 
+### Built-in ROM
+
+Chipical has a built-in ROM located within the reserved section of memory between `0x000` and `0x200`. This is a "BIOS" that allows you to write and jump to anywhere in memory. Starting chipical with the `-b` option will start emulation in this ROM, or if the program counter overflows back to `0x000`.
+
+Here, you are prompted to press a key on the keypad to issue these following commands:
+* `0`: Jump to the normal starting point (`0x200`)
+* `1`: Jump to a location in memory
+* `2`: Call a subroutine within a location in memory
+* `3`: Probe an address to see its 16-bit value
+* `4`: Specify an address and write a 16-bit value to it
+* `5`: Write a 16-bit value to the address previewed on screen
+* `6`: Write a 16-bit value to the next address (current + 2)
+
+For all commands except `3`, you will be presented with a `?` prompt after typing a value. This is asking you to confirm the command you are issuing. If you made a mistake in writing, you can press `0` to cancel the command, otherwise pressing any other key will carry out the command you specified.
+
 ### TODO
 
 - Debugging mode, stepping through program per cycle and viewing register values
