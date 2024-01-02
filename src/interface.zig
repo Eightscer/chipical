@@ -99,12 +99,14 @@ pub fn main() !void {
     defer _ = gpa.deinit();
 
 	const params = comptime clap.parseParamsComptime(
-		\\-h, --help				Displays this help menu and exits.
-		\\-p, --paused				Start the interpreter in a paused state
-		\\-i, --instant				Instantly renders screen on every DRAW instruction
-		\\-b, --bios				Starts at PC = 0x000, containing a builtin-ROM
-		\\-f, --freq <FREQ>			Specifies max frequency for interpreter (default 100000)
-		\\-s, --scale <SCALE>		Scaling factor of application window (default 10)
+		\\-h,	--help				Displays this help menu and exits.
+		\\-p,	--paused			Start the interpreter in a paused state
+		\\-i,	--instant			Instantly renders screen on every DRAW instruction
+		\\-b,	--bios				Starts at PC = 0x000, containing a builtin-ROM
+		\\-f,	--freq <FREQ>		Specifies max frequency for interpreter (default 100000)
+		\\-s,	--scale <SCALE>		Scaling factor of application window (default 10)
+		\\--foreground <FG>	RGBA color value for sprites
+		\\--background <BG>	RGBA color value for background
 		\\<FILE>...
 		\\
 	);
@@ -113,6 +115,8 @@ pub fn main() !void {
 		.FREQ = clap.parsers.int(u64, 10),
 		.SCALE = clap.parsers.int(c_int, 10),
 		.FILE = clap.parsers.string,
+		.BG = clap.parsers.int(u32, 16),
+		.FG = clap.parsers.int(u32, 16),
 	};
 
 	var diag = clap.Diagnostic{};
@@ -145,6 +149,8 @@ pub fn main() !void {
 	if (res.args.paused != 0) {emu.pause = true;}
 	if (res.args.instant != 0) {emu.instant_render = true;}
 	if (res.args.bios != 0) {emu.system.s.pc = 0;}
+	if (res.args.foreground) |c| {emu.fgcolor = c;}
+	if (res.args.background) |c| {emu.bgcolor = c;}
 	//for (res.positionals) |pos| {_ = emu.system.load_rom_file(pos) catch {};}
 	if (res.positionals.len > 0) {
 		_ = emu.system.load_rom_file(res.positionals[0]) catch {};
