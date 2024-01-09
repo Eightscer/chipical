@@ -24,6 +24,8 @@ Interops with SDL2 for graphics and input handing.
 -b,  --bios               Starts at PC = 0x000, containing a builtin-ROM
 -f,  --freq <FREQ>        Specifies max frequency for interpreter (default 100000)
 -s,  --scale <SCALE>      Scaling factor of application window (default 10)
+--foreground <FG>	RGBA color value for sprites
+--background <BG>	RGBA color value for background
 ```
 
 The keypad is mapped `{0, 1, ..., E, F} -> {X, 1, 2, 3, Q, W, E, A, S, D, Z, C, 4, R, F, V}`.
@@ -48,7 +50,7 @@ For all commands except `3`, you will be presented with a `?` prompt after typin
 ### TODO
 
 - Debugging mode, stepping through program per cycle and viewing register values
-- Additional command line arguments for customization (colors)
+- Additional command line arguments for greater customization
 - Saving and loading configurations from a JSON file
 - Sound
 
