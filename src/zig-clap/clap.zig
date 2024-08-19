@@ -18,6 +18,8 @@ test "clap" {
     testing.refAllDecls(@This());
 }
 
+pub const default_assignment_separators = "=";
+
 /// The names a `Param` can have.
 pub const Names = struct {
     /// '-' prefix
@@ -132,7 +134,7 @@ fn countParams(str: []const u8) usize {
     @setEvalBranchQuota(std.math.maxInt(u32));
 
     var res: usize = 0;
-    var it = mem.split(u8, str, "\n");
+    var it = mem.splitScalar(u8, str, '\n');
     while (it.next()) |line| {
         const trimmed = mem.trimLeft(u8, line, " \t");
         if (mem.startsWith(u8, trimmed, "-") or
@@ -643,6 +645,7 @@ test "Diagnostic.report" {
 pub const ParseOptions = struct {
     allocator: mem.Allocator,
     diagnostic: ?*Diagnostic = null,
+    assignment_separators: []const u8 = default_assignment_separators,
 };
 
 /// Same as `parseEx` but uses the `args.OsIterator` by default.
@@ -662,6 +665,7 @@ pub fn parse(
         // Let's reuse the arena from the `OSIterator` since we already have it.
         .allocator = arena.allocator(),
         .diagnostic = opt.diagnostic,
+        .assignment_separators = opt.assignment_separators,
     });
 
     return Result(Id, params, value_parsers){
@@ -733,6 +737,7 @@ pub fn parseEx(
         .params = params,
         .iter = iter,
         .diagnostic = opt.diagnostic,
+        .assignment_separators = opt.assignment_separators,
     };
     while (try stream.next()) |arg| {
         // TODO: We cannot use `try` inside the inline for because of a compiler bug that
@@ -895,8 +900,15 @@ fn Arguments(
     comptime value_parsers: anytype,
     comptime multi_arg_kind: MultiArgKind,
 ) type {
-    var fields: [params.len]builtin.Type.StructField = undefined;
+    var fields_len: usize = 0;
+    for (params) |param| {
+        const longest = param.names.longest();
+        if (longest.kind == .positional)
+            continue;
+        fields_len += 1;
+    }
 
+    var fields: [fields_len]builtin.Type.StructField = undefined;
     var i: usize = 0;
     for (params) |param| {
         const longest = param.names.longest();
@@ -913,9 +925,9 @@ fn Arguments(
             },
         };
 
-        const name = longest.name[0..longest.name.len].*;
+        const name = longest.name[0..longest.name.len] ++ ""; // Adds null terminator
         fields[i] = .{
-            .name = &name,
+            .name = name,
             .type = @TypeOf(default_value),
             .default_value = @ptrCast(&default_value),
             .is_comptime = false,
@@ -925,8 +937,8 @@ fn Arguments(
     }
 
     return @Type(.{ .Struct = .{
-        .layout = .Auto,
-        .fields = fields[0..i],
+        .layout = .auto,
+        .fields = &fields,
         .decls = &.{},
         .is_tuple = false,
     } });
@@ -946,6 +958,24 @@ test "str and u64" {
         .allocator = testing.allocator,
     });
     defer res.deinit();
+}
+
+test "different assignment separators" {
+    const params = comptime parseParamsComptime(
+        \\-a, --aa <usize>...
+        \\
+    );
+
+    var iter = args.SliceIterator{
+        .args = &.{ "-a=0", "--aa=1", "-a:2", "--aa:3" },
+    };
+    var res = try parseEx(Help, &params, parsers.default, &iter, .{
+        .allocator = testing.allocator,
+        .assignment_separators = "=:",
+    });
+    defer res.deinit();
+
+    try testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3 }, res.args.aa);
 }
 
 test "everything" {
@@ -1163,7 +1193,7 @@ pub fn help(
 
             var first_line = true;
             var res: usize = std.math.maxInt(usize);
-            var it = mem.tokenize(u8, description, "\n");
+            var it = mem.tokenizeScalar(u8, description, '\n');
             while (it.next()) |line| : (first_line = false) {
                 const trimmed = mem.trimLeft(u8, line, " ");
                 const indent = line.len - trimmed.len;
@@ -1188,7 +1218,7 @@ pub fn help(
         };
 
         const description = param.id.description();
-        var it = mem.split(u8, description, "\n");
+        var it = mem.splitScalar(u8, description, '\n');
         var first_line = true;
         var non_emitted_newlines: usize = 0;
         var last_line_indentation: usize = 0;
@@ -1235,7 +1265,7 @@ pub fn help(
                     try description_writer.newline();
             }
 
-            var words = mem.tokenize(u8, line, " ");
+            var words = mem.tokenizeScalar(u8, line, ' ');
             while (words.next()) |word|
                 try description_writer.writeWord(word);
 
